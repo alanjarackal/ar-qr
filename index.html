@@ -31,7 +31,7 @@
         padding: 10px 20px;
         font-size: 16px;
       }
-      #distanceList {
+/*       #distanceList {
         position: absolute;
         z-index: 100;
         bottom: 10px;
@@ -41,7 +41,37 @@
         background: rgba(0, 0, 0, 0.5);
         color: #fff;
         padding: 10px;
+      } */
+      /* Make sure distance box and AR toggle are visible in portrait mode */
+      #distanceList {
+        position: absolute;
+        bottom: 60px;
+        left: 10px;
+        right: 10px;
+        max-height: 30%;
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        font-size: 14px;
+        padding: 10px;
+        z-index: 999;
+        border-radius: 10px;
       }
+      
+/*       #toggleAR {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        padding: 10px 20px;
+        background: #00bcd4;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+      } */
+
       #distanceList ul {
         list-style: none;
         padding: 0;
@@ -173,6 +203,39 @@
         const arText = document.getElementById('arLocationText');
         arText.setAttribute('value', text);
       }
+      // Utility: Convert lat/lon to rough meter offset (for indoor demo purposes)
+    function latLonToOffset(baseLat, baseLon, targetLat, targetLon) {
+      const dx = (targetLon - baseLon) * 111320 * Math.cos(baseLat * Math.PI / 180); // meters
+      const dz = (targetLat - baseLat) * 110540; // meters
+      return { x: dx / 10, z: -dz / 10 }; // scale down for AR.js scene
+    }
+    
+    // Add AR labels for all other lobby points
+    function showARLabels(currentLocation) {
+      const scene = document.querySelector('a-scene');
+    
+      // Remove any previous labels
+      document.querySelectorAll('.ar-label').forEach(e => e.remove());
+    
+      lobbyLocations.forEach(location => {
+        if (location.id === currentLocation.id) return;
+    
+        const offset = latLonToOffset(
+          parseFloat(currentLocation.latitude),
+          parseFloat(currentLocation.longitude),
+          parseFloat(location.latitude),
+          parseFloat(location.longitude)
+        );
+    
+        const label = document.createElement('a-text');
+        label.setAttribute('value', location.name);
+        label.setAttribute('position', `${offset.x.toFixed(2)} 1.5 ${offset.z.toFixed(2)}`);
+        label.setAttribute('color', 'yellow');
+        label.setAttribute('look-at', '[camera]');
+        label.setAttribute('class', 'ar-label');
+        scene.appendChild(label);
+      });
+    }
 
       // When a current location is selected, update AR text and display distances
       function handleLocationSelect(event) {
@@ -180,6 +243,10 @@
         if (!locationId) {
           document.getElementById('distanceUl').innerHTML = "";
           updateARText("");
+          updateARText(currentLocation.name); // still show selected name
+          displayDistances(currentLocation);  // show distances
+          showARLabels(currentLocation);      // anchor other names in AR
+
           return;
         }
         // Find current location data from the fetched list
