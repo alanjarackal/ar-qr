@@ -2,28 +2,72 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <title>AR Lobby Distance Demo with AR Text</title>
+    <!-- Ensure the viewport scales correctly -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR Lobby Distance Demo with Responsive AR Text</title>
     <!-- A-Frame and AR.js -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <!-- Supabase client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <style>
-      body { margin: 0; overflow: hidden; font-family: sans-serif; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100%;
+        font-family: sans-serif;
+      }
+      /* Fullscreen A-Frame scene */
+      a-scene {
+        width: 100vw;
+        height: 100vh;
+      }
       #locationSelect {
-        position: absolute; z-index: 100; top: 20px; left: 20px;
-        padding: 10px 20px; font-size: 16px;
+        position: absolute;
+        z-index: 100;
+        top: 10px;
+        left: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
       }
       #distanceList {
-        position: absolute; z-index: 100; bottom: 20px; width: 100%;
-        max-height: 40%; overflow-y: auto; background: rgba(0, 0, 0, 0.5);
-        color: #fff; padding: 10px;
+        position: absolute;
+        z-index: 100;
+        bottom: 10px;
+        width: 100%;
+        max-height: 40%;
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.5);
+        color: #fff;
+        padding: 10px;
       }
       #distanceList ul {
-        list-style: none; padding: 0; margin: 0;
+        list-style: none;
+        padding: 0;
+        margin: 0;
       }
       #distanceList li {
         margin: 5px 0;
+      }
+      /* Responsive positioning for AR text element */
+      a-text#arLocationText {
+        color: #FFF;
+        align: center;
+      }
+      /* For portrait mode, adjust the AR text position */
+      @media only screen and (orientation: portrait) {
+        a-text#arLocationText {
+          /* Adjust these values as needed */
+          position: 0 1.5 -2;
+        }
+      }
+      /* For landscape mode */
+      @media only screen and (orientation: landscape) {
+        a-text#arLocationText {
+          /* Adjust these values as needed */
+          position: 0 2 -3;
+        }
       }
     </style>
   </head>
@@ -32,11 +76,10 @@
     <a-scene embedded arjs="sourceType: webcam;">
       <!-- Marker for demonstration -->
       <a-marker preset="hiro">
-        <!-- A box as a placeholder -->
         <a-box position="0 0.5 0" material="color: yellow;"></a-box>
       </a-marker>
       <!-- AR text element for displaying the selected location name -->
-      <a-text id="arLocationText" value="" position="0 2 -3" align="center" color="#FFF"></a-text>
+      <a-text id="arLocationText" value="" position="0 2 -3"></a-text>
       <a-entity camera></a-entity>
     </a-scene>
     
