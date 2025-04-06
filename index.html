@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>AR Lobby Distance Demo</title>
+    <!-- A-Frame and AR.js -->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <!-- Supabase client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <style>
+      body { margin: 0; overflow: hidden; font-family: sans-serif; }
+      #locationSelect {
+        position: absolute; z-index: 100; top: 20px; left: 20px;
+        padding: 10px 20px; font-size: 16px;
+      }
+      #distanceList {
+        position: absolute; z-index: 100; bottom: 20px; width: 100%;
+        max-height: 40%; overflow-y: auto; background: rgba(0, 0, 0, 0.5);
+        color: #fff; padding: 10px;
+      }
+      #distanceList ul {
+        list-style: none; padding: 0; margin: 0;
+      }
+      #distanceList li {
+        margin: 5px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- AR Scene -->
+    <a-scene embedded arjs="sourceType: webcam;">
+      <!-- A simple marker for demonstration (using Hiro marker) -->
+      <a-marker preset="hiro">
+        <!-- Placeholder 3D object (a box) -->
+        <a-box position="0 0.5 0" material="color: yellow;"></a-box>
+      </a-marker>
+      <a-entity camera></a-entity>
+    </a-scene>
+    
+    <!-- Dropdown for selecting current lobby location -->
+    <select id="locationSelect">
+      <option value="">Select Your Current Lobby Location</option>
+    </select>
+    <!-- Display distances to other locations -->
+    <div id="distanceList">
+      <ul id="distanceUl"></ul>
+    </div>
+
+    <script>
+      // Initialize Supabase with your project URL and anon key
+      const SUPABASE_URL = 'https://ikbwdlfjsxglfmydupsk.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYndkbGZqc3hnbGZteWR1cHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5MDg1NTUsImV4cCI6MjA1NjQ4NDU1NX0.NCc_38naVWc-JHO1qkcXdBU1BEqeZJfuxMrQwg07dD0';
+      const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      let lobbyLocations = [];
+
+      // Fetch all lobby locations from Supabase
+      async function fetchLobbyLocations() {
+        try {
+          let { data, error } = await supabase
+            .from('points')
+            .select('*')
+            .eq('type', 'lobby');
+
+          if (error) {
+            console.error("Error fetching lobby locations:", error);
+            return;
+          }
+          lobbyLocations = data;
+          populateLocationSelect(data);
+        } catch (err) {
+          console.error("Error fetching lobby locations:", err);
+        }
+      }
+
+      // Populate the dropdown with lobby locations
+      function populateLocationSelect(locations) {
+        const select = document.getElementById('locationSelect');
+        locations.forEach(location => {
+          const option = document.createElement('option');
+          option.value = location.id;
+          option.textContent = location.name;
+          select.appendChild(option);
+        });
+      }
+
+      // Haversine formula to calculate distance (in meters) between two lat/lon coordinates
+      function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // Earth radius in meters
+        const toRadians = angle => angle * (Math.PI / 180);
+        const φ1 = toRadians(lat1);
+        const φ2 = toRadians(lat2);
+        const Δφ = toRadians(lat2 - lat1);
+        const Δλ = toRadians(lon2 - lon1);
+
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+      }
+
+      // Calculate distances from current location to all other lobby points and display them
+      function displayDistances(currentLocation) {
+        const list = document.getElementById('distanceUl');
+        list.innerHTML = ""; // Clear existing list
+
+        lobbyLocations.forEach(location => {
+          // Skip the current location
+          if(location.id == currentLocation.id) return;
+
+          const distance = calculateDistance(
+            parseFloat(currentLocation.latitude),
+            parseFloat(currentLocation.longitude),
+            parseFloat(location.latitude),
+            parseFloat(location.longitude)
+          );
+
+          const li = document.createElement('li');
+          li.textContent = `${location.name}: ${distance.toFixed(1)} meters away`;
+          list.appendChild(li);
+        });
+      }
+
+      // When a current location is selected, fetch its data and display distances
+      async function handleLocationSelect(event) {
+        const locationId = event.target.value;
+        if (!locationId) {
+          document.getElementById('distanceUl').innerHTML = "";
+          return;
+        }
+        // Find current location data from the fetched list
+        const currentLocation = lobbyLocations.find(loc => loc.id == locationId);
+        if (currentLocation) {
+          displayDistances(currentLocation);
+        }
+      }
+
+      // Attach event listener to the dropdown
+      document.getElementById('locationSelect').addEventListener('change', handleLocationSelect);
+
+      // Fetch lobby locations on page load
+      fetchLobbyLocations();
+    </script>
+  </body>
+</html>
