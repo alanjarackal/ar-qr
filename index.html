@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <title>AR Lobby Distance Demo</title>
+    <title>AR Lobby Distance Demo with AR Text</title>
     <!-- A-Frame and AR.js -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
@@ -30,11 +30,13 @@
   <body>
     <!-- AR Scene -->
     <a-scene embedded arjs="sourceType: webcam;">
-      <!-- A simple marker for demonstration (using Hiro marker) -->
+      <!-- Marker for demonstration -->
       <a-marker preset="hiro">
-        <!-- Placeholder 3D object (a box) -->
+        <!-- A box as a placeholder -->
         <a-box position="0 0.5 0" material="color: yellow;"></a-box>
       </a-marker>
+      <!-- AR text element for displaying the selected location name -->
+      <a-text id="arLocationText" value="" position="0 2 -3" align="center" color="#FFF"></a-text>
       <a-entity camera></a-entity>
     </a-scene>
     
@@ -48,7 +50,7 @@
     </div>
 
     <script>
-      // Initialize Supabase with your project URL and anon key, using a different variable name
+      // Initialize Supabase with your project URL and anon key
       const SUPABASE_URL = 'https://ikbwdlfjsxglfmydupsk.supabase.co';
       const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYndkbGZqc3hnbGZteWR1cHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5MDg1NTUsImV4cCI6MjA1NjQ4NDU1NX0.NCc_38naVWc-JHO1qkcXdBU1BEqeZJfuxMrQwg07dD0';
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -123,16 +125,24 @@
         });
       }
 
-      // When a current location is selected, fetch its data and display distances
+      // Update AR scene text with the selected location name
+      function updateARText(text) {
+        const arText = document.getElementById('arLocationText');
+        arText.setAttribute('value', text);
+      }
+
+      // When a current location is selected, update AR text and display distances
       function handleLocationSelect(event) {
         const locationId = event.target.value;
         if (!locationId) {
           document.getElementById('distanceUl').innerHTML = "";
+          updateARText("");
           return;
         }
         // Find current location data from the fetched list
         const currentLocation = lobbyLocations.find(loc => loc.id == locationId);
         if (currentLocation) {
+          updateARText(currentLocation.name);
           displayDistances(currentLocation);
         }
       }
