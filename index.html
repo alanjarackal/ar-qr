@@ -35,11 +35,13 @@
 
   <body>
     <!-- AR Scene -->
-    <a-scene
-      vr-mode-ui="enabled: false"
-      embedded
-      arjs="sourceType: webcam; debugUIEnabled: false;"
+        <a-scene
+      arjs="sourceType: webcam;"
+      vr-mode-ui="enabled: true"
+      embedded="false"
+      renderer="logarithmicDepthBuffer: true;"
     >
+
       <!-- Marker Example -->
       <a-marker preset="hiro">
         <a-box position="0 0.5 0" material="color: yellow;"></a-box>
