@@ -75,6 +75,43 @@
         border-radius: 5px;
         display: none;
       }
+      /* Styles for compass indicator */
+      #compassContainer {
+        position: absolute;
+        z-index: 100;
+        top: 60px;
+        right: 10px;
+        width: 60px;
+        height: 60px;
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      #compass {
+        width: 40px;
+        height: 40px;
+        position: relative;
+      }
+      #compassNeedle {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 2px;
+        height: 20px;
+        background-color: red;
+        transform-origin: bottom center;
+        transform: translateX(-1px);
+      }
+      #compassText {
+        position: absolute;
+        top: 42px;
+        width: 100%;
+        text-align: center;
+        color: white;
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
@@ -104,8 +141,17 @@
     <!-- Help button and text -->
     <button id="helpButton">Help</button>
     <div id="helpText">
-      Look around to see AR text labels showing locations and their distances from your selected position.
-      Labels are positioned in 3D space around you.
+      Look around to see AR text labels showing locations in their actual geographic positions.
+      Labels are positioned based on real-world coordinates and will appear in the direction
+      of their physical location. The distance is shown in meters.
+    </div>
+    
+    <!-- Compass indicator -->
+    <div id="compassContainer">
+      <div id="compass">
+        <div id="compassNeedle"></div>
+        <div id="compassText">N</div>
+      </div>
     </div>
 
     <script>
@@ -115,6 +161,7 @@
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
       let lobbyLocations = [];
+      let deviceOrientation = 0; // Device compass heading in degrees
 
       // Fetch all lobby locations from Supabase
       async function fetchLobbyLocations() {
@@ -162,6 +209,51 @@
         return R * c;
       }
 
+      // Calculate bearing between two points
+      function calculateBearing(lat1, lon1, lat2, lon2) {
+        const toRadians = angle => angle * (Math.PI / 180);
+        const toDegrees = angle => angle * (180 / Math.PI);
+        
+        const φ1 = toRadians(lat1);
+        const φ2 = toRadians(lat2);
+        const Δλ = toRadians(lon2 - lon1);
+
+        const y = Math.sin(Δλ) * Math.cos(φ2);
+        const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+        
+        let bearing = toDegrees(Math.atan2(y, x));
+        // Normalize to 0-360
+        bearing = (bearing + 360) % 360;
+        
+        return bearing;
+      }
+
+      // Convert geographic coordinates to AR positioning
+      function geoToARPosition(currentLat, currentLon, targetLat, targetLon, distance) {
+        // Calculate bearing
+        const bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
+        
+        // Scale distance for AR view (adjust this scaling factor as needed)
+        // We want closer locations to be within reasonable view
+        const MAX_AR_DISTANCE = 10; // Max distance in AR space
+        const distanceScale = Math.min(distance / 1000, 1); // Scale based on real distance, max 1km
+        const scaledDistance = 3 + (distanceScale * MAX_AR_DISTANCE);
+        
+        // Convert from polar to cartesian coordinates
+        // We need to adjust for the device orientation to make positions relative to where user is facing
+        const bearingRadians = (bearing * Math.PI) / 180;
+        
+        // Calculate position: x is left/right, z is forward/backward
+        // In A-Frame, negative z is in front of the camera
+        const x = scaledDistance * Math.sin(bearingRadians);
+        const z = -scaledDistance * Math.cos(bearingRadians);
+        
+        // Keep y (height) constant for now
+        const y = 1.5;
+        
+        return { x, y, z, bearing };
+      }
+
       // Calculate distances from current location to all other lobby points and display them
       function displayDistances(currentLocation) {
         const list = document.getElementById('distanceUl');
@@ -181,11 +273,8 @@
         currentLocationEntity.setAttribute('align', 'center');
         currentLocationEntity.setAttribute('width', '4');
         arContainer.appendChild(currentLocationEntity);
-
-        // Counter for positioning other location entities around the user
-        let count = 0;
-        const totalLocations = lobbyLocations.length - 1; // Exclude current location
         
+        // Add location markers
         lobbyLocations.forEach(location => {
           // Skip the current location
           if(location.id == currentLocation.id) return;
@@ -205,24 +294,52 @@
           // Create AR text entity for this location
           const textEntity = document.createElement('a-text');
           
-          // Calculate position around the user in a circle
-          // We're positioning in a semi-circle in front of the user
-          const angle = (Math.PI / totalLocations) * count - (Math.PI / 2);
-          const radius = 3; // Distance from user
-          const x = radius * Math.cos(angle);
-          const y = 1.5; // Height
-          const z = -radius * Math.sin(angle) - 1; // Negative z is in front of the camera
+          // Calculate geographic position
+          const { x, y, z, bearing } = geoToARPosition(
+            parseFloat(currentLocation.latitude),
+            parseFloat(currentLocation.longitude),
+            parseFloat(location.latitude),
+            parseFloat(location.longitude),
+            distance
+          );
           
-          textEntity.setAttribute('value', `${location.name}\n${distance.toFixed(1)} meters`);
+          // Set AR text content
+          textEntity.setAttribute('value', `${location.name}\n${distance.toFixed(1)} meters\n(${bearing.toFixed(0)}°)`);
           textEntity.setAttribute('position', `${x} ${y} ${z}`);
           textEntity.setAttribute('color', '#FFFFFF');
           textEntity.setAttribute('align', 'center');
           textEntity.setAttribute('width', '3');
           textEntity.setAttribute('look-at', '[camera]'); // Make text always face user
           
-          arContainer.appendChild(textEntity);
-          count++;
+          // Create a parent entity to hold both the text and an indicator line
+          const locationEntity = document.createElement('a-entity');
+          locationEntity.appendChild(textEntity);
+          
+          // Add a line pointing down to the ground as a visual indicator
+          const indicatorLine = document.createElement('a-entity');
+          indicatorLine.setAttribute('line', `start: ${x} ${y-0.5} ${z}; end: ${x} ${0} ${z}; color: #FFFFFF`);
+          locationEntity.appendChild(indicatorLine);
+          
+          arContainer.appendChild(locationEntity);
         });
+      }
+
+      // Handle device orientation for compass
+      function handleDeviceOrientation(event) {
+        // Update compass needle
+        if (event.webkitCompassHeading) {
+          // For iOS devices
+          deviceOrientation = event.webkitCompassHeading;
+        } else if (event.alpha) {
+          // For Android devices
+          deviceOrientation = 360 - event.alpha;
+        }
+        
+        // Update the compass needle
+        const compassNeedle = document.getElementById('compassNeedle');
+        if (compassNeedle) {
+          compassNeedle.style.transform = `translateX(-1px) rotate(${deviceOrientation}deg)`;
+        }
       }
 
       // When a current location is selected, display distances
@@ -249,6 +366,25 @@
         const helpText = document.getElementById('helpText');
         helpText.style.display = helpText.style.display === 'none' ? 'block' : 'none';
       });
+
+      // Initialize device orientation/compass
+      if (window.DeviceOrientationEvent) {
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          // For iOS 13+
+          document.getElementById('helpButton').addEventListener('click', function() {
+            DeviceOrientationEvent.requestPermission()
+              .then(response => {
+                if (response === 'granted') {
+                  window.addEventListener('deviceorientation', handleDeviceOrientation);
+                }
+              })
+              .catch(console.error);
+          });
+        } else {
+          // For non-iOS or older iOS
+          window.addEventListener('deviceorientation', handleDeviceOrientation);
+        }
+      }
 
       // Attach event listener to the dropdown
       document.getElementById('locationSelect').addEventListener('change', handleLocationSelect);
