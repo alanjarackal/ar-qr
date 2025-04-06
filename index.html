@@ -1,277 +1,143 @@
+
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8">
-    <!-- Ensure the viewport scales correctly -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AR Lobby Distance Demo with Responsive AR Text</title>
-    <!-- A-Frame and AR.js -->
+    <meta charset="utf-8" />
+    <title>AR Lobby Demo</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <!-- Supabase client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://rawcdn.githack.com/AR-js-org/AR.js/3.3.2/aframe/build/aframe-ar.min.js"></script>
     <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        height: 100%;
-        font-family: sans-serif;
-      }
-      /* Fullscreen A-Frame scene */
-      a-scene {
-        width: 100vw;
-        height: 100vh;
-      }
-      #locationSelect {
+      body { margin: 0; overflow: hidden; font-family: sans-serif; }
+      #locationSelect, #distanceList, #toggleAR {
         position: absolute;
-        z-index: 100;
-        top: 10px;
-        left: 10px;
-        padding: 10px 20px;
-        font-size: 16px;
-      }
-/*       #distanceList {
-        position: absolute;
-        z-index: 100;
-        bottom: 10px;
-        width: 100%;
-        max-height: 40%;
-        overflow-y: auto;
-        background: rgba(0, 0, 0, 0.5);
-        color: #fff;
-        padding: 10px;
-      } */
-      /* Make sure distance box and AR toggle are visible in portrait mode */
-      #distanceList {
-        position: absolute;
-        bottom: 60px;
         left: 10px;
         right: 10px;
+        z-index: 999;
+        font-size: 14px;
+      }
+      #locationSelect { top: 10px; }
+      #distanceList {
+        bottom: 60px;
         max-height: 30%;
         overflow-y: auto;
         background: rgba(0, 0, 0, 0.7);
         color: white;
-        font-size: 14px;
         padding: 10px;
-        z-index: 999;
         border-radius: 10px;
       }
-      
-/*       #toggleAR {
-        position: absolute;
+      #toggleAR {
         bottom: 10px;
         left: 50%;
         transform: translateX(-50%);
-        z-index: 1000;
         padding: 10px 20px;
         background: #00bcd4;
         color: white;
         border: none;
         border-radius: 8px;
-        font-size: 16px;
-      } */
-
-      #distanceList ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-      }
-      #distanceList li {
-        margin: 5px 0;
-      }
-      /* Responsive positioning for AR text element */
-      a-text#arLocationText {
-        color: #FFF;
-        align: center;
-      }
-      /* For portrait mode, adjust the AR text position */
-      @media only screen and (orientation: portrait) {
-        a-text#arLocationText {
-          /* Adjust these values as needed */
-          position: 0 1.5 -2;
-        }
-      }
-      /* For landscape mode */
-      @media only screen and (orientation: landscape) {
-        a-text#arLocationText {
-          /* Adjust these values as needed */
-          position: 0 2 -3;
-        }
       }
     </style>
   </head>
   <body>
-    <!-- AR Scene -->
+    <select id="locationSelect">
+      <option value="">Select your current location</option>
+    </select>
+    <div id="distanceList"></div>
+    <button id="toggleAR">Exit AR Mode</button>
+
     <a-scene embedded arjs="sourceType: webcam;">
-      <!-- Marker for demonstration -->
-      <a-marker preset="hiro">
-        <a-box position="0 0.5 0" material="color: yellow;"></a-box>
-      </a-marker>
-      <!-- AR text element for displaying the selected location name -->
-      <a-text id="arLocationText" value="" position="0 2 -3"></a-text>
       <a-entity camera></a-entity>
     </a-scene>
-    
-    <!-- Dropdown for selecting current lobby location -->
-    <select id="locationSelect">
-      <option value="">Select Your Current Lobby Location</option>
-    </select>
-    <button id="toggleAR">Enter AR Mode</button>
-
-    <!-- Display distances to other locations -->
-    <div id="distanceList">
-      <ul id="distanceUl"></ul>
-    </div>
 
     <script>
-      // Initialize Supabase with your project URL and anon key
-      const SUPABASE_URL = 'https://ikbwdlfjsxglfmydupsk.supabase.co';
-      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYndkbGZqc3hnbGZteWR1cHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5MDg1NTUsImV4cCI6MjA1NjQ4NDU1NX0.NCc_38naVWc-JHO1qkcXdBU1BEqeZJfuxMrQwg07dD0';
-      const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const supabaseUrl = "https://ikbwdlfjsxglfmydupsk.supabase.co";
+      const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYndkbGZqc3hnbGZteWR1cHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5MDg1NTUsImV4cCI6MjA1NjQ4NDU1NX0.NCc_38naVWc-JHO1qkcXdBU1BEqeZJfuxMrQwg07dD0";
+      const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
       let lobbyLocations = [];
-      const toggleBtn = document.getElementById('toggleAR');
-      let arVisible = true;
-      
-      toggleBtn.addEventListener('click', () => {
-        const scene = document.querySelector('a-scene');
-        arVisible = !arVisible;
-        scene.style.display = arVisible ? 'block' : 'none';
-        toggleBtn.textContent = arVisible ? 'Exit AR Mode' : 'Enter AR Mode';
-      });
 
-      // Fetch all lobby locations from Supabase
       async function fetchLobbyLocations() {
-        try {
-          let { data, error } = await supabaseClient
-            .from('points')
-            .select('*')
-            .eq('type', 'lobby');
-
-          if (error) {
-            console.error("Error fetching lobby locations:", error);
-            return;
-          }
+        const { data, error } = await supabase.from("points").select("*").eq("type", "lobby");
+        if (data) {
           lobbyLocations = data;
-          populateLocationSelect(data);
-        } catch (err) {
-          console.error("Error fetching lobby locations:", err);
+          populateLocationSelect();
         }
       }
 
-      // Populate the dropdown with lobby locations
-      function populateLocationSelect(locations) {
-        const select = document.getElementById('locationSelect');
-        locations.forEach(location => {
-          const option = document.createElement('option');
-          option.value = location.id;
-          option.textContent = location.name;
+      function populateLocationSelect() {
+        const select = document.getElementById("locationSelect");
+        lobbyLocations.forEach(loc => {
+          const option = document.createElement("option");
+          option.value = loc.id;
+          option.textContent = loc.name;
           select.appendChild(option);
         });
       }
 
-      // Haversine formula to calculate distance (in meters) between two lat/lon coordinates
-      function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371e3; // Earth radius in meters
-        const toRadians = angle => angle * (Math.PI / 180);
-        const φ1 = toRadians(lat1);
-        const φ2 = toRadians(lat2);
-        const Δφ = toRadians(lat2 - lat1);
-        const Δλ = toRadians(lon2 - lon1);
-
-        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
+      function latLonToOffset(baseLat, baseLon, targetLat, targetLon) {
+        const dx = (targetLon - baseLon) * 111320 * Math.cos(baseLat * Math.PI / 180);
+        const dz = (targetLat - baseLat) * 110540;
+        return { x: dx / 10, z: -dz / 10 };
       }
 
-      // Calculate distances from current location to all other lobby points and display them
       function displayDistances(currentLocation) {
-        const list = document.getElementById('distanceUl');
-        list.innerHTML = ""; // Clear existing list
-
-        lobbyLocations.forEach(location => {
-          // Skip the current location
-          if(location.id == currentLocation.id) return;
-
-          const distance = calculateDistance(
-            parseFloat(currentLocation.latitude),
-            parseFloat(currentLocation.longitude),
-            parseFloat(location.latitude),
-            parseFloat(location.longitude)
-          );
-
-          const li = document.createElement('li');
-          li.textContent = `${location.name}: ${distance.toFixed(1)} meters away`;
-          list.appendChild(li);
+        const list = document.getElementById("distanceList");
+        list.innerHTML = "";
+        lobbyLocations.forEach(loc => {
+          if (loc.id === currentLocation.id) return;
+          const d = haversine(currentLocation.latitude, currentLocation.longitude, loc.latitude, loc.longitude);
+          const div = document.createElement("div");
+          div.textContent = `${loc.name}: ${d.toFixed(2)} m`;
+          list.appendChild(div);
         });
       }
 
-      // Update AR scene text with the selected location name
-      function updateARText(text) {
-        const arText = document.getElementById('arLocationText');
-        arText.setAttribute('value', text);
+      function haversine(lat1, lon1, lat2, lon2) {
+        function toRad(x) { return x * Math.PI / 180; }
+        const R = 6371e3;
+        const φ1 = toRad(lat1), φ2 = toRad(lat2);
+        const Δφ = toRad(lat2 - lat1), Δλ = toRad(lon2 - lon1);
+        const a = Math.sin(Δφ/2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       }
-      // Utility: Convert lat/lon to rough meter offset (for indoor demo purposes)
-    function latLonToOffset(baseLat, baseLon, targetLat, targetLon) {
-      const dx = (targetLon - baseLon) * 111320 * Math.cos(baseLat * Math.PI / 180); // meters
-      const dz = (targetLat - baseLat) * 110540; // meters
-      return { x: dx / 10, z: -dz / 10 }; // scale down for AR.js scene
-    }
-    
-    // Add AR labels for all other lobby points
-    function showARLabels(currentLocation) {
-      const scene = document.querySelector('a-scene');
-    
-      // Remove any previous labels
-      document.querySelectorAll('.ar-label').forEach(e => e.remove());
-    
-      lobbyLocations.forEach(location => {
-        if (location.id === currentLocation.id) return;
-    
-        const offset = latLonToOffset(
-          parseFloat(currentLocation.latitude),
-          parseFloat(currentLocation.longitude),
-          parseFloat(location.latitude),
-          parseFloat(location.longitude)
-        );
-    
-        const label = document.createElement('a-text');
-        label.setAttribute('value', location.name);
-        label.setAttribute('position', `${offset.x.toFixed(2)} 1.5 ${offset.z.toFixed(2)}`);
-        label.setAttribute('color', 'yellow');
-        label.setAttribute('look-at', '[camera]');
-        label.setAttribute('class', 'ar-label');
-        scene.appendChild(label);
+
+      function showARLabels(currentLocation) {
+        const scene = document.querySelector("a-scene");
+        document.querySelectorAll(".ar-label").forEach(e => e.remove());
+
+        lobbyLocations.forEach(location => {
+          if (location.id === currentLocation.id) return;
+
+          const offset = latLonToOffset(currentLocation.latitude, currentLocation.longitude, location.latitude, location.longitude);
+
+          const label = document.createElement("a-entity");
+          label.setAttribute("geometry", "primitive: plane; height: 0.3; width: auto");
+          label.setAttribute("material", "color: black; opacity: 0.7");
+          label.setAttribute("text", `value: ${location.name}; align: center; color: white;`);
+          label.setAttribute("position", `${offset.x.toFixed(2)} 1.5 ${offset.z.toFixed(2)}`);
+          label.setAttribute("look-at", "[camera]");
+          label.setAttribute("class", "ar-label");
+          scene.appendChild(label);
+        });
+      }
+
+      document.getElementById("locationSelect").addEventListener("change", () => {
+        const id = parseInt(document.getElementById("locationSelect").value);
+        const selected = lobbyLocations.find(l => l.id === id);
+        if (selected) {
+          displayDistances(selected);
+          showARLabels(selected);
+        }
       });
-    }
 
-      // When a current location is selected, update AR text and display distances
-      function handleLocationSelect(event) {
-        const locationId = event.target.value;
-        if (!locationId) {
-          document.getElementById('distanceUl').innerHTML = "";
-          updateARText("");
-          updateARText(currentLocation.name); // still show selected name
-          displayDistances(currentLocation);  // show distances
-          showARLabels(currentLocation);      // anchor other names in AR
+      document.getElementById("toggleAR").addEventListener("click", () => {
+        const scene = document.querySelector("a-scene");
+        const btn = document.getElementById("toggleAR");
+        const isVisible = scene.style.display !== "none";
+        scene.style.display = isVisible ? "none" : "block";
+        btn.textContent = isVisible ? "Enter AR Mode" : "Exit AR Mode";
+      });
 
-          return;
-        }
-        // Find current location data from the fetched list
-        const currentLocation = lobbyLocations.find(loc => loc.id == locationId);
-        if (currentLocation) {
-          updateARText(currentLocation.name);
-          displayDistances(currentLocation);
-        }
-      }
-
-      // Attach event listener to the dropdown
-      document.getElementById('locationSelect').addEventListener('change', handleLocationSelect);
-
-      // Fetch lobby locations on page load
       fetchLobbyLocations();
     </script>
   </body>
