@@ -55,7 +55,8 @@
   <select id="locationSelect">
     <option value="">Select Your Current Lobby Location</option>
   </select>
-  <button id="toggleAR">Enter AR Mode</button>
+ <button id="toggleAR" data-ar="false">Enter AR Mode</button>
+
 
   <!-- Display distances to other locations -->
   <div id="distanceList">
@@ -73,11 +74,18 @@
     let arVisible = true;
 
     toggleBtn.addEventListener('click', () => {
-      const scene = document.querySelector('a-scene');
-      arVisible = !arVisible;
-      scene.style.display = arVisible ? 'block' : 'none';
-      toggleBtn.textContent = arVisible ? 'Exit AR Mode' : 'Enter AR Mode';
+      const isActive = toggleBtn.getAttribute('data-ar') === 'true';
+      
+      // Toggle AR mode
+      toggleBtn.setAttribute('data-ar', (!isActive).toString());
+      toggleBtn.textContent = isActive ? 'Enter AR Mode' : 'Exit AR Mode';
+      
+      // Toggle visibility of UI overlays
+      document.getElementById('distanceList').style.display = isActive ? 'block' : 'none';
+      document.getElementById('locationSelect').style.display = isActive ? 'block' : 'none';
     });
+
+
 
     async function fetchLobbyLocations() {
       const { data, error } = await supabaseClient
