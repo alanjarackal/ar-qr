@@ -117,6 +117,8 @@
     <select id="locationSelect">
       <option value="">Select Your Current Lobby Location</option>
     </select>
+    <button id="toggleAR">Enter AR Mode</button>
+
     <!-- Display distances to other locations -->
     <div id="distanceList">
       <ul id="distanceUl"></ul>
@@ -129,6 +131,15 @@
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
       let lobbyLocations = [];
+      const toggleBtn = document.getElementById('toggleAR');
+      let arVisible = true;
+      
+      toggleBtn.addEventListener('click', () => {
+        const scene = document.querySelector('a-scene');
+        arVisible = !arVisible;
+        scene.style.display = arVisible ? 'block' : 'none';
+        toggleBtn.textContent = arVisible ? 'Exit AR Mode' : 'Enter AR Mode';
+      });
 
       // Fetch all lobby locations from Supabase
       async function fetchLobbyLocations() {
