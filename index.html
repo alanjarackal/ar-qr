@@ -50,24 +50,30 @@
       #distanceList li {
         margin: 5px 0;
       }
-      /* Responsive positioning for AR text element */
-      a-text#arLocationText {
-        color: #FFF;
-        align: center;
+      /* Styles for the help button */
+      #helpButton {
+        position: absolute;
+        z-index: 100;
+        top: 10px;
+        right: 10px;
+        padding: 10px;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
       }
-      /* For portrait mode, adjust the AR text position */
-      @media only screen and (orientation: portrait) {
-        a-text#arLocationText {
-          /* Adjust these values as needed */
-          position: 0 1.5 -2;
-        }
-      }
-      /* For landscape mode */
-      @media only screen and (orientation: landscape) {
-        a-text#arLocationText {
-          /* Adjust these values as needed */
-          position: 0 2 -3;
-        }
+      #helpText {
+        position: absolute;
+        z-index: 99;
+        top: 50px;
+        right: 10px;
+        width: 250px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        display: none;
       }
     </style>
   </head>
@@ -78,8 +84,10 @@
       <a-marker preset="hiro">
         <a-box position="0 0.5 0" material="color: yellow;"></a-box>
       </a-marker>
-      <!-- AR text element for displaying the selected location name -->
-      <a-text id="arLocationText" value="" position="0 2 -3"></a-text>
+      
+      <!-- AR parent entity to hold all the location text entities -->
+      <a-entity id="ar-locations-container"></a-entity>
+      
       <a-entity camera></a-entity>
     </a-scene>
     
@@ -87,9 +95,17 @@
     <select id="locationSelect">
       <option value="">Select Your Current Lobby Location</option>
     </select>
+    
     <!-- Display distances to other locations -->
     <div id="distanceList">
       <ul id="distanceUl"></ul>
+    </div>
+    
+    <!-- Help button and text -->
+    <button id="helpButton">Help</button>
+    <div id="helpText">
+      Look around to see AR text labels showing locations and their distances from your selected position.
+      Labels are positioned in 3D space around you.
     </div>
 
     <script>
@@ -151,6 +167,25 @@
         const list = document.getElementById('distanceUl');
         list.innerHTML = ""; // Clear existing list
 
+        // Clear existing AR text entities
+        const arContainer = document.getElementById('ar-locations-container');
+        while (arContainer.firstChild) {
+            arContainer.removeChild(arContainer.firstChild);
+        }
+
+        // Add a text entity for the current location
+        const currentLocationEntity = document.createElement('a-text');
+        currentLocationEntity.setAttribute('value', `Current Location: ${currentLocation.name}`);
+        currentLocationEntity.setAttribute('position', '0 1.8 -3');
+        currentLocationEntity.setAttribute('color', '#FFFF00'); // Yellow for current location
+        currentLocationEntity.setAttribute('align', 'center');
+        currentLocationEntity.setAttribute('width', '4');
+        arContainer.appendChild(currentLocationEntity);
+
+        // Counter for positioning other location entities around the user
+        let count = 0;
+        const totalLocations = lobbyLocations.length - 1; // Exclude current location
+        
         lobbyLocations.forEach(location => {
           // Skip the current location
           if(location.id == currentLocation.id) return;
@@ -162,33 +197,58 @@
             parseFloat(location.longitude)
           );
 
+          // Add to HTML list
           const li = document.createElement('li');
           li.textContent = `${location.name}: ${distance.toFixed(1)} meters away`;
           list.appendChild(li);
+
+          // Create AR text entity for this location
+          const textEntity = document.createElement('a-text');
+          
+          // Calculate position around the user in a circle
+          // We're positioning in a semi-circle in front of the user
+          const angle = (Math.PI / totalLocations) * count - (Math.PI / 2);
+          const radius = 3; // Distance from user
+          const x = radius * Math.cos(angle);
+          const y = 1.5; // Height
+          const z = -radius * Math.sin(angle) - 1; // Negative z is in front of the camera
+          
+          textEntity.setAttribute('value', `${location.name}\n${distance.toFixed(1)} meters`);
+          textEntity.setAttribute('position', `${x} ${y} ${z}`);
+          textEntity.setAttribute('color', '#FFFFFF');
+          textEntity.setAttribute('align', 'center');
+          textEntity.setAttribute('width', '3');
+          textEntity.setAttribute('look-at', '[camera]'); // Make text always face user
+          
+          arContainer.appendChild(textEntity);
+          count++;
         });
       }
 
-      // Update AR scene text with the selected location name
-      function updateARText(text) {
-        const arText = document.getElementById('arLocationText');
-        arText.setAttribute('value', text);
-      }
-
-      // When a current location is selected, update AR text and display distances
+      // When a current location is selected, display distances
       function handleLocationSelect(event) {
         const locationId = event.target.value;
         if (!locationId) {
           document.getElementById('distanceUl').innerHTML = "";
-          updateARText("");
+          // Clear AR entities
+          const arContainer = document.getElementById('ar-locations-container');
+          while (arContainer.firstChild) {
+              arContainer.removeChild(arContainer.firstChild);
+          }
           return;
         }
         // Find current location data from the fetched list
         const currentLocation = lobbyLocations.find(loc => loc.id == locationId);
         if (currentLocation) {
-          updateARText(currentLocation.name);
           displayDistances(currentLocation);
         }
       }
+
+      // Toggle help text visibility
+      document.getElementById('helpButton').addEventListener('click', function() {
+        const helpText = document.getElementById('helpText');
+        helpText.style.display = helpText.style.display === 'none' ? 'block' : 'none';
+      });
 
       // Attach event listener to the dropdown
       document.getElementById('locationSelect').addEventListener('change', handleLocationSelect);
