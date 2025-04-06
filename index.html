@@ -48,17 +48,17 @@
     </div>
 
     <script>
-      // Initialize Supabase with your project URL and anon key
+      // Initialize Supabase with your project URL and anon key, using a different variable name
       const SUPABASE_URL = 'https://ikbwdlfjsxglfmydupsk.supabase.co';
       const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYndkbGZqc3hnbGZteWR1cHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5MDg1NTUsImV4cCI6MjA1NjQ4NDU1NX0.NCc_38naVWc-JHO1qkcXdBU1BEqeZJfuxMrQwg07dD0';
-      const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
       let lobbyLocations = [];
 
       // Fetch all lobby locations from Supabase
       async function fetchLobbyLocations() {
         try {
-          let { data, error } = await supabase
+          let { data, error } = await supabaseClient
             .from('points')
             .select('*')
             .eq('type', 'lobby');
@@ -124,7 +124,7 @@
       }
 
       // When a current location is selected, fetch its data and display distances
-      async function handleLocationSelect(event) {
+      function handleLocationSelect(event) {
         const locationId = event.target.value;
         if (!locationId) {
           document.getElementById('distanceUl').innerHTML = "";
