@@ -38,107 +38,147 @@
       }
     </style>
   </head>
-  <body>
-    <select id="locationSelect">
-      <option value="">Select your current location</option>
-    </select>
-    <div id="distanceList"></div>
-    <button id="toggleAR">Exit AR Mode</button>
+<body>
+  <!-- AR Scene -->
+  <a-scene embedded arjs="sourceType: webcam;">
+    <!-- Marker for demonstration -->
+    <a-marker preset="hiro">
+      <a-box position="0 0.5 0" material="color: yellow;"></a-box>
+    </a-marker>
 
-    <a-scene embedded arjs="sourceType: webcam;">
-      <a-entity camera></a-entity>
-    </a-scene>
+    <!-- AR text element for displaying the selected location name -->
+    <a-text id="arLocationText" value="" position="0 2 -3"></a-text>
+    <a-entity camera></a-entity>
+  </a-scene>
 
-    <script>
-      const supabaseUrl = "https://ikbwdlfjsxglfmydupsk.supabase.co";
-      const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYndkbGZqc3hnbGZteWR1cHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5MDg1NTUsImV4cCI6MjA1NjQ4NDU1NX0.NCc_38naVWc-JHO1qkcXdBU1BEqeZJfuxMrQwg07dD0";
-      const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+  <!-- Dropdown for selecting current lobby location -->
+  <select id="locationSelect">
+    <option value="">Select Your Current Lobby Location</option>
+  </select>
+  <button id="toggleAR">Enter AR Mode</button>
 
-      let lobbyLocations = [];
+  <!-- Display distances to other locations -->
+  <div id="distanceList">
+    <ul id="distanceUl"></ul>
+  </div>
 
-      async function fetchLobbyLocations() {
-        const { data, error } = await supabase.from("points").select("*").eq("type", "lobby");
-        if (data) {
-          lobbyLocations = data;
-          populateLocationSelect();
-        }
+  <script>
+    // Initialize Supabase
+    const SUPABASE_URL = 'https://ikbwdlfjsxglfmydupsk.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYndkbGZqc3hnbGZteWR1cHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5MDg1NTUsImV4cCI6MjA1NjQ4NDU1NX0.NCc_38naVWc-JHO1qkcXdBU1BEqeZJfuxMrQwg07dD0';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let lobbyLocations = [];
+    const toggleBtn = document.getElementById('toggleAR');
+    let arVisible = true;
+
+    toggleBtn.addEventListener('click', () => {
+      const scene = document.querySelector('a-scene');
+      arVisible = !arVisible;
+      scene.style.display = arVisible ? 'block' : 'none';
+      toggleBtn.textContent = arVisible ? 'Exit AR Mode' : 'Enter AR Mode';
+    });
+
+    async function fetchLobbyLocations() {
+      const { data, error } = await supabaseClient
+        .from('points')
+        .select('*')
+        .eq('type', 'lobby');
+      if (error) {
+        console.error("Error fetching locations:", error);
+        return;
       }
+      lobbyLocations = data;
+      populateLocationSelect(data);
+    }
 
-      function populateLocationSelect() {
-        const select = document.getElementById("locationSelect");
-        lobbyLocations.forEach(loc => {
-          const option = document.createElement("option");
-          option.value = loc.id;
-          option.textContent = loc.name;
-          select.appendChild(option);
-        });
-      }
-
-      function latLonToOffset(baseLat, baseLon, targetLat, targetLon) {
-        const dx = (targetLon - baseLon) * 111320 * Math.cos(baseLat * Math.PI / 180);
-        const dz = (targetLat - baseLat) * 110540;
-        return { x: dx / 10, z: -dz / 10 };
-      }
-
-      function displayDistances(currentLocation) {
-        const list = document.getElementById("distanceList");
-        list.innerHTML = "";
-        lobbyLocations.forEach(loc => {
-          if (loc.id === currentLocation.id) return;
-          const d = haversine(currentLocation.latitude, currentLocation.longitude, loc.latitude, loc.longitude);
-          const div = document.createElement("div");
-          div.textContent = `${loc.name}: ${d.toFixed(2)} m`;
-          list.appendChild(div);
-        });
-      }
-
-      function haversine(lat1, lon1, lat2, lon2) {
-        function toRad(x) { return x * Math.PI / 180; }
-        const R = 6371e3;
-        const φ1 = toRad(lat1), φ2 = toRad(lat2);
-        const Δφ = toRad(lat2 - lat1), Δλ = toRad(lon2 - lon1);
-        const a = Math.sin(Δφ/2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) ** 2;
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      }
-
-      function showARLabels(currentLocation) {
-        const scene = document.querySelector("a-scene");
-        document.querySelectorAll(".ar-label").forEach(e => e.remove());
-
-        lobbyLocations.forEach(location => {
-          if (location.id === currentLocation.id) return;
-
-          const offset = latLonToOffset(currentLocation.latitude, currentLocation.longitude, location.latitude, location.longitude);
-
-          const label = document.createElement("a-entity");
-          label.setAttribute("geometry", "primitive: plane; height: 0.3; width: auto");
-          label.setAttribute("material", "color: black; opacity: 0.7");
-          label.setAttribute("text", `value: ${location.name}; align: center; color: white;`);
-          label.setAttribute("position", `${offset.x.toFixed(2)} 1.5 ${offset.z.toFixed(2)}`);
-          label.setAttribute("look-at", "[camera]");
-          label.setAttribute("class", "ar-label");
-          scene.appendChild(label);
-        });
-      }
-
-      document.getElementById("locationSelect").addEventListener("change", () => {
-        const id = parseInt(document.getElementById("locationSelect").value);
-        const selected = lobbyLocations.find(l => l.id === id);
-        if (selected) {
-          displayDistances(selected);
-          showARLabels(selected);
-        }
+    function populateLocationSelect(locations) {
+      const select = document.getElementById('locationSelect');
+      locations.forEach(location => {
+        const option = document.createElement('option');
+        option.value = location.id;
+        option.textContent = location.name;
+        select.appendChild(option);
       });
+    }
 
-      document.getElementById("toggleAR").addEventListener("click", () => {
-        const scene = document.querySelector("a-scene");
-        const btn = document.getElementById("toggleAR");
-        const isVisible = scene.style.display !== "none";
-        scene.style.display = isVisible ? "none" : "block";
-        btn.textContent = isVisible ? "Enter AR Mode" : "Exit AR Mode";
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const toRad = angle => angle * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function displayDistances(currentLocation) {
+      const list = document.getElementById('distanceUl');
+      list.innerHTML = "";
+      lobbyLocations.forEach(location => {
+        if (location.id == currentLocation.id) return;
+        const d = calculateDistance(
+          currentLocation.latitude, currentLocation.longitude,
+          location.latitude, location.longitude
+        );
+        const li = document.createElement('li');
+        li.textContent = `${location.name}: ${d.toFixed(1)} meters`;
+        list.appendChild(li);
       });
+    }
 
-      fetchLobbyLocations();
-    </script>
-  </body>
+    function updateARText(text) {
+      const arText = document.getElementById('arLocationText');
+      arText.setAttribute('value', text);
+    }
+
+    function latLonToOffset(baseLat, baseLon, targetLat, targetLon) {
+      const dx = (targetLon - baseLon) * 111320 * Math.cos(baseLat * Math.PI / 180);
+      const dz = (targetLat - baseLat) * 110540;
+      return { x: dx / 10, z: -dz / 10 };
+    }
+
+    function showARLabels(currentLocation) {
+      const scene = document.querySelector('a-scene');
+      document.querySelectorAll('.ar-label').forEach(e => e.remove());
+
+      lobbyLocations.forEach(location => {
+        if (location.id == currentLocation.id) return;
+        const offset = latLonToOffset(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          location.latitude,
+          location.longitude
+        );
+        const label = document.createElement('a-text');
+        label.setAttribute('value', location.name);
+        label.setAttribute('position', `${offset.x.toFixed(2)} 1.5 ${offset.z.toFixed(2)}`);
+        label.setAttribute('color', 'yellow');
+        label.setAttribute('look-at', '[camera]');
+        label.setAttribute('class', 'ar-label');
+        scene.appendChild(label);
+      });
+    }
+
+    function handleLocationSelect(event) {
+      const locationId = event.target.value;
+      const currentLocation = lobbyLocations.find(loc => loc.id == locationId);
+      if (!currentLocation) {
+        document.getElementById('distanceUl').innerHTML = "";
+        updateARText("");
+        return;
+      }
+
+      updateARText(currentLocation.name);
+      displayDistances(currentLocation);
+      showARLabels(currentLocation);
+    }
+
+    document.getElementById('locationSelect').addEventListener('change', handleLocationSelect);
+
+    fetchLobbyLocations();
+  </script>
+</body>
 </html>
