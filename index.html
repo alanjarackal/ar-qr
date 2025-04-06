@@ -35,35 +35,34 @@
 
   <body>
     <!-- AR Scene -->
-        <a-scene
-   embedded
-  arjs="sourceType: webcam;"
-  renderer="logarithmicDepthBuffer: true;"
-  vr-mode-ui="enabled: false"
->
-
-
-
-      <!-- Marker Example -->
+    <a-scene embedded arjs="sourceType: webcam;">
+      <!-- Marker for demonstration -->
       <a-marker preset="hiro">
         <a-box position="0 0.5 0" material="color: yellow;"></a-box>
       </a-marker>
-
-      <!-- Dynamic AR Text -->
-      <a-entity id="arTextContainer"></a-entity>
-
+      <!-- AR text element for displaying the selected location name -->
+      <a-text id="arLocationText" value="" position="0 2 -3"></a-text>
       <a-entity camera></a-entity>
     </a-scene>
-
-    <!-- UI: Lobby Selector -->
+    
+    <!-- Dropdown for selecting current lobby location -->
     <select id="locationSelect">
       <option value="">Select Your Current Lobby Location</option>
     </select>
-
-    <!-- UI: Distance List -->
+    <!-- Display distances to other locations -->
     <div id="distanceList">
       <ul id="distanceUl"></ul>
     </div>
+
+
+
+      <!-- Dynamic AR Text -->
+<!--       <a-entity id="arTextContainer"></a-entity> -->
+
+    
+    <!-- UI: Lobby Selector -->
+
+    <!-- UI: Distance List -->
 
     <script>
       // Supabase setup
